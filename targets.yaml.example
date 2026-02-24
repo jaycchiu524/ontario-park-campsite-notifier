@@ -1,0 +1,9 @@
+targets:
+  - park: "Killbear"
+    arrival: "2026-03-10"
+    nights: 2
+    equipment: "Single Tent"
+  - park: "Algonquin"
+    arrival: "2026-03-15"
+    nights: 3
+    equipment: "Single Tent"
