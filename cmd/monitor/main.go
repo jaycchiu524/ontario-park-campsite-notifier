@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/caarlos0/env/v11"
+	"github.com/jaycchiu524/campsite-notifier/internal/notifier"
 	"github.com/jaycchiu524/campsite-notifier/internal/scraper"
 	"github.com/joho/godotenv"
 	stealth "github.com/jonfriesen/playwright-go-stealth"
@@ -29,10 +30,11 @@ type YAMLConfig struct {
 }
 
 type Config struct {
-	Interval    int    `env:"CHECK_INTERVAL_MINUTES" envDefault:"10"`
-	IsDev       bool   `env:"DEV" envDefault:"false"`
-	TargetsFile string `env:"TARGETS_FILE" envDefault:"targets.yaml"`
-	ReportFile  string `env:"REPORT_FILE" envDefault:"report.yaml"`
+	Interval          int    `env:"CHECK_INTERVAL_MINUTES" envDefault:"10"`
+	IsDev             bool   `env:"DEV" envDefault:"false"`
+	TargetsFile       string `env:"TARGETS_FILE" envDefault:"targets.yaml"`
+	ReportFile        string `env:"REPORT_FILE" envDefault:"report.yaml"`
+	DiscordWebhookURL string `env:"DISCORD_WEBHOOK_URL"`
 }
 
 type SearchResult struct {
@@ -61,7 +63,13 @@ func main() {
 	logger := slog.New(handler)
 	slog.SetDefault(logger)
 
-	// 2. Load targets from YAML
+	// 2. Initialize Notifier
+	var discNotifier notifier.Notifier
+	if cfg.DiscordWebhookURL != "" {
+		discNotifier = notifier.NewDiscordNotifier(cfg.DiscordWebhookURL, logger)
+	}
+
+	// 3. Load targets from YAML
 	yamlFile, err := os.ReadFile(cfg.TargetsFile)
 	if err != nil {
 		logger.Error("Could not read targets file", slog.String("path", cfg.TargetsFile), slog.String("error", err.Error()))
@@ -74,7 +82,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	// 3. Expand targets
+	// 4. Expand targets
 	expandedTargets := expandTargets(yCfg.Targets)
 
 	logger.Info("Monitoring started",
@@ -83,7 +91,7 @@ func main() {
 		slog.Int("interval_minutes", cfg.Interval),
 		slog.Bool("dev_mode", cfg.IsDev))
 
-	// 4. Initialize Playwright
+	// 5. Initialize Playwright
 	pw, err := playwright.Run()
 	if err != nil {
 		logger.Error("Could not start playwright", slog.String("error", err.Error()))
@@ -91,7 +99,7 @@ func main() {
 	}
 	defer pw.Stop()
 
-	// 5. Launch Browser
+	// 6. Launch Browser
 	browser, err := pw.Chromium.Launch(playwright.BrowserTypeLaunchOptions{
 		Headless: playwright.Bool(!cfg.IsDev),
 		Args: []string{
@@ -113,7 +121,6 @@ func main() {
 			go func(t Target) {
 				defer wg.Done()
 
-				// Create a contextual logger for this target
 				tLog := logger.With(slog.String("park", t.Park), slog.String("arrival", t.Arrival))
 
 				res, err := runSearch(tLog, browser, t)
@@ -121,7 +128,14 @@ func main() {
 				if err != nil {
 					tLog.Error("Search failed", slog.String("error", err.Error()))
 					errStr = err.Error()
+				} else if len(res) > 0 {
+					if discNotifier != nil {
+						if nErr := discNotifier.Notify(t.Park, t.Arrival, res); nErr != nil {
+							tLog.Error("Failed to send notification", slog.String("error", nErr.Error()))
+						}
+					}
 				}
+
 				resultsChan <- SearchResult{
 					Park:    t.Park,
 					Arrival: t.Arrival,

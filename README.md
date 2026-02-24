@@ -7,6 +7,7 @@ A robust web scraper built with Go and Playwright to monitor campsite availabili
 - **Parallel Monitoring**: Check multiple parks and dates simultaneously using Go routines.
 - **YAML Configuration**: Easily manage search targets, including park names, arrival dates, and duration.
 - **Smart Park Expansion**: Use prefixes (e.g., "Algonquin") to automatically monitor all sub-parks in that group.
+- **Discord Notifications**: Receive real-time alerts via Discord Webhooks when campsites become available.
 - **Structured Logging**: Uses `log/slog` for professional observability and debugging (JSON or Text format).
 - **Automated Reporting**: Generates a clean `report.yaml` summarizing available campsites across all monitored targets.
 - **Stealth Integration**: Uses playwright-stealth to minimize detection by automated bot counters.
@@ -43,6 +44,9 @@ CHECK_INTERVAL_MINUTES=10
 # Development mode (headless: false, text logging)
 DEV=true
 
+# Discord Webhook URL for notifications
+DISCORD_WEBHOOK_URL="https://discord.com/api/webhooks/..."
+
 # Custom filenames (optional)
 TARGETS_FILE="targets.yaml"
 REPORT_FILE="report.yaml"
@@ -74,14 +78,8 @@ go run cmd/monitor/main.go
 
 The application uses structured logging. In production (`DEV=false`), logs are output in JSON format for easy ingestion by log management tools. In development (`DEV=true`), logs are output in a human-readable text format.
 
-Key events logged:
-
-- Monitoring initialization and target expansion.
-- Detailed steps for each parallel search.
-- Summary of campground and campsite findings.
-- Report generation status.
-
 ## Output
 
+- **Discord Alerts**: Instant notifications when campsites are found.
 - **Logs**: Real-time progress and error reporting in the terminal.
 - **report.yaml**: A structured summary of all available campsites found during the latest check.
