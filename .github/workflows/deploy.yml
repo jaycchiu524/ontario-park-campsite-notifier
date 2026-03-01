@@ -1,0 +1,37 @@
+name: Campsite Notifier Deploy
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    runs-on: self-hosted
+
+    steps:
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
+
+      - name: 🛠️ Set up Go
+        run: |
+          export PATH="$HOME/.local/share/mise/shims:$PATH"
+          go version
+
+      - name: 📦 Install Dependencies
+        run: go mod download
+
+      # - name: 🧪 Run Tests
+      #   run: go test ./... -v
+
+      - name: 🏗️ Build Binary
+        run: go build -ldflags="-s -w" -o campsite-notifier ./cmd/monitor/main.go
+
+      - name: 🚀 Deploy
+        run: |
+          mkdir -p /home/campsite-bot/app
+          cp -f campsite-notifier /home/campsite-bot/app/
+          chmod +x /home/campsite-bot/app/campsite-notifier
+          sudo systemctl restart campsite-notifier.service
